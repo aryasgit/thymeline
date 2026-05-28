@@ -17,8 +17,6 @@ from fastapi import (
 from fastapi.responses import (
     HTMLResponse, JSONResponse, FileResponse, RedirectResponse, PlainTextResponse,
 )
-from fastapi.staticfiles import StaticFiles
-
 from .db import DB
 from .vault import Vault, now_iso, rebuild_index, extract_inline_tags
 from .auth import (
@@ -94,18 +92,35 @@ def members_map() -> dict[str, dict]:
 
 # ---------- pages ----------
 
+NO_STORE = {"Cache-Control": "no-store"}
+
+
 @app.get("/", response_class=HTMLResponse)
 def index_page():
-    return (WEB_DIR / "index.html").read_text(encoding="utf-8")
+    return HTMLResponse(
+        (WEB_DIR / "index.html").read_text(encoding="utf-8"), headers=NO_STORE,
+    )
 
 
 @app.get("/join", response_class=HTMLResponse)
 def join_page():
-    return (WEB_DIR / "join.html").read_text(encoding="utf-8")
+    return HTMLResponse(
+        (WEB_DIR / "join.html").read_text(encoding="utf-8"), headers=NO_STORE,
+    )
 
 
-# Serve static web files
-app.mount("/static", StaticFiles(directory=WEB_DIR), name="static")
+# Serve static web files with no-store so browsers always pick up the latest
+# JS/CSS during development.
+@app.get("/static/{path:path}")
+def static_file(path: str):
+    target = (WEB_DIR / path).resolve()
+    try:
+        target.relative_to(WEB_DIR.resolve())
+    except ValueError:
+        raise HTTPException(404, "not found")
+    if not target.exists() or not target.is_file():
+        raise HTTPException(404, "not found")
+    return FileResponse(target, headers=NO_STORE)
 
 
 # ---------- bootstrap / auth ----------
