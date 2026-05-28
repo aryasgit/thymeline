@@ -747,20 +747,36 @@ function bindDialogs() {
   $('#bootstrapForm').addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const f = ev.target;
+    const submitBtn = f.querySelector('button[type="submit"]');
+    if (submitBtn.disabled) return;            // double-submit guard
+    submitBtn.disabled = true;
     const project = f.project.value.trim();
     const name = f.name.value.trim();
     try {
-      await api('/api/bootstrap', {
+      // Use the bootstrap response directly — avoids a cookie-timing race
+      // where Safari sometimes hasn't applied the Set-Cookie before our
+      // follow-up /api/me request fires.
+      const r = await api('/api/bootstrap', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ project, name }),
       });
+      state.me = r.member;
+      state.project = r.project;
+      state.ownerSet = true;
       $('#bootstrapDialog').hidden = true;
-      const me = await api('/api/me');
-      state.me = me.member; state.project = me.project; state.ownerSet = me.owner_set;
-      await refreshAll(); renderAll();
-      toast('welcome, ' + name);
-    } catch (err) { toast('start failed: ' + err.message, 'err'); }
+      // Reload to ensure cookie is fully applied before any subsequent calls.
+      location.reload();
+    } catch (err) {
+      // 409 means an owner already exists — reload to enter the right flow.
+      if (/^409\b/.test(err.message)) {
+        toast('this project is already set up — reloading', 'err');
+        setTimeout(() => location.reload(), 600);
+        return;
+      }
+      toast('start failed: ' + err.message, 'err');
+      submitBtn.disabled = false;
+    }
   });
   // Click outside dialog → close
   $$('.dialog').forEach(d => d.addEventListener('click', (ev) => {
