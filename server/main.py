@@ -83,6 +83,20 @@ def enrich_entry(e: dict, members: dict[str, dict]) -> dict:
         "name": a["name"] if a else "unknown",
         "color": a["color"] if a else "#8a8a8a",
     }
+    # Expand assets from "string paths" to {path, name, size} for the UI.
+    expanded = []
+    for ap in e.get("assets") or []:
+        full = vault.root / ap
+        try:
+            size = full.stat().st_size
+        except OSError:
+            size = None
+        expanded.append({
+            "path": ap,
+            "name": ap.rsplit("/", 1)[-1],
+            "size": size,
+        })
+    out["assets"] = expanded
     return out
 
 
@@ -297,10 +311,11 @@ async def create_entry(
     for f in files or []:
         if not f.filename:
             continue
-        data = await f.read()
-        if not data:
+        rel = await vault.save_asset_stream(f, f.filename, now)
+        # Drop empty uploads (e.g. user attached then removed)
+        if not (vault.root / rel).stat().st_size:
+            (vault.root / rel).unlink(missing_ok=True)
             continue
-        rel = vault.save_asset(data, f.filename, now)
         asset_paths.append(rel)
 
     member_row = db.get_member(me["id"])

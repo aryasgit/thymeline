@@ -99,21 +99,35 @@ class Vault:
             if e:
                 yield e
 
-    def save_asset(self, content: bytes, original_name: str, when: datetime) -> str:
-        """Save an asset under assets/YYYY/MM/DD/. Returns vault-relative path."""
+    def _asset_target(self, original_name: str, when: datetime) -> Path:
         sub = when.strftime("%Y/%m/%d")
         target_dir = self.assets_dir / sub
         target_dir.mkdir(parents=True, exist_ok=True)
         safe = re.sub(r"[^A-Za-z0-9._-]+", "-", original_name).strip("-") or "file"
-        stem, dot, ext = safe.rpartition(".")
         ts = when.strftime("%H%M%S")
-        name = f"{ts}-{stem or safe}{dot}{ext}" if dot else f"{ts}-{safe}"
-        target = target_dir / name
+        target = target_dir / f"{ts}-{safe}"
         n = 1
         while target.exists():
             target = target_dir / f"{ts}-{n}-{safe}"
             n += 1
+        return target
+
+    def save_asset(self, content: bytes, original_name: str, when: datetime) -> str:
+        """Save an asset (in-memory bytes). Returns vault-relative path."""
+        target = self._asset_target(original_name, when)
         target.write_bytes(content)
+        return target.relative_to(self.root).as_posix()
+
+    async def save_asset_stream(self, upload_file, original_name: str, when: datetime,
+                                 chunk_size: int = 1024 * 1024) -> str:
+        """Stream an UploadFile to disk in chunks — safe for huge CAD/STEP files."""
+        target = self._asset_target(original_name, when)
+        with target.open("wb") as out:
+            while True:
+                chunk = await upload_file.read(chunk_size)
+                if not chunk:
+                    break
+                out.write(chunk)
         return target.relative_to(self.root).as_posix()
 
     def asset_full_path(self, relative: str) -> Optional[Path]:

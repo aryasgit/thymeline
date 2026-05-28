@@ -476,10 +476,21 @@ function lazyLoadBody(entryEl) {
 
   const md = e.body ? `<div class="md">${renderMd(e.body)}</div>` : '';
   const assets = (e.assets || []).map(a => {
-    const isImg = /\.(png|jpe?g|gif|webp|bmp|avif)$/i.test(a);
-    const url = '/' + a.replace(/^\/+/, '');
-    if (isImg) return `<a href="${escapeHtml(url)}" target="_blank"><img loading="lazy" src="${escapeHtml(url)}" alt=""></a>`;
-    return `<a href="${escapeHtml(url)}" target="_blank" class="file">${escapeHtml(a.split('/').pop())}</a>`;
+    // Backward-compat: server may still send strings on older entries
+    const path = typeof a === 'string' ? a : a.path;
+    const name = typeof a === 'string' ? path.split('/').pop() : a.name;
+    const size = typeof a === 'string' ? null : a.size;
+    const isImg = /\.(png|jpe?g|gif|webp|bmp|avif|svg)$/i.test(path);
+    const url = '/' + path.replace(/^\/+/, '');
+    if (isImg) {
+      return `<a href="${escapeHtml(url)}" target="_blank"><img loading="lazy" src="${escapeHtml(url)}" alt="${escapeHtml(name)}"></a>`;
+    }
+    const ext = fileExt(name);
+    return `<a href="${escapeHtml(url)}" target="_blank" class="file" title="${escapeHtml(name)}">
+      <span class="ext">${escapeHtml(ext || 'file')}</span>
+      <span class="fname">${escapeHtml(name)}</span>
+      <span class="fsize">${escapeHtml(fmtBytes(size))}</span>
+    </a>`;
   }).join('');
   const tagChips = (e.tags || []).map(t => `<span class="tag" data-tag="${escapeHtml(t)}">#${escapeHtml(t)}</span>`).join('');
   const canEdit = state.me && (state.me.id === e.author_id || state.me.is_owner);
@@ -664,6 +675,19 @@ function addFiles(fl) {
   renderPending();
 }
 
+function fmtBytes(n) {
+  if (n == null || isNaN(n)) return '';
+  if (n < 1024) return n + ' B';
+  if (n < 1024 * 1024) return (n / 1024).toFixed(0) + ' KB';
+  if (n < 1024 * 1024 * 1024) return (n / 1024 / 1024).toFixed(1) + ' MB';
+  return (n / 1024 / 1024 / 1024).toFixed(2) + ' GB';
+}
+
+function fileExt(name) {
+  const i = name.lastIndexOf('.');
+  return i > 0 ? name.slice(i + 1).toLowerCase() : '';
+}
+
 function renderPending() {
   const box = $('#cmdPreview');
   if (!state.pending.files.length) { box.hidden = true; box.innerHTML = ''; return; }
@@ -671,7 +695,8 @@ function renderPending() {
   box.innerHTML = state.pending.files.map((f, i) => {
     const isImg = f.type.startsWith('image/');
     const thumb = isImg ? `<img src="${URL.createObjectURL(f)}">` : '';
-    return `<span class="chip">${thumb}${escapeHtml(f.name)} <span class="x" data-i="${i}">×</span></span>`;
+    const size = fmtBytes(f.size);
+    return `<span class="chip">${thumb}${escapeHtml(f.name)}<span class="size">${escapeHtml(size)}</span><span class="x" data-i="${i}">×</span></span>`;
   }).join('');
   $$('.cmd-preview .x').forEach(x => x.addEventListener('click', (e) => {
     const i = +e.currentTarget.dataset.i;
