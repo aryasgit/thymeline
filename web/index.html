@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Thymeline</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Inter+Tight:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+
+<!-- ============== TOP BAR ============== -->
+<header class="topbar">
+  <div class="wrap top-grid">
+    <a href="/" class="brand">
+      <span class="glyph"></span>Thymeline
+    </a>
+    <div class="top-mid mono cap">
+      <span id="projectName">—</span>
+      <span class="sep">·</span>
+      <span class="live"><span class="pulse" id="pulse"></span><span id="localTime">--:--:--</span></span>
+    </div>
+    <div class="top-right">
+      <div class="members-inline" id="membersInline"></div>
+      <button class="pill ghost" id="inviteBtn" hidden>Invite</button>
+      <button class="icon-btn" id="themeBtn" title="toggle theme">◐</button>
+    </div>
+  </div>
+</header>
+
+<!-- ============== HERO / COMMAND BAR ============== -->
+<section class="hero">
+  <div class="wrap">
+    <div class="hero-grid">
+      <div class="hero-l">
+        <div class="cap">Timeline</div>
+        <h1 class="tight" id="heroTitle">
+          Every step, every <span class="ul">failure</span>,
+          <span class="lite">every fix.</span>
+        </h1>
+        <div class="hero-sub dim" id="heroSub">
+          Drop. Paste. Type. Anything you build belongs here.
+        </div>
+      </div>
+      <div class="hero-r">
+        <!-- Always-available quick entry -->
+        <form class="cmd" id="cmdForm" autocomplete="off">
+          <div class="cmd-types" id="cmdTypes">
+            <button type="button" class="t on" data-type="idea">idea</button>
+            <button type="button" class="t" data-type="progress">progress</button>
+            <button type="button" class="t" data-type="failure">failure</button>
+            <button type="button" class="t" data-type="log">log</button>
+            <button type="button" class="t" data-type="debug">debug</button>
+            <button type="button" class="t" data-type="code">code</button>
+            <button type="button" class="t" data-type="record">record</button>
+          </div>
+          <div class="cmd-body">
+            <textarea
+              id="cmdInput"
+              rows="3"
+              placeholder="log something. paste images. drop files. use #tags."
+            ></textarea>
+            <div id="cmdPreview" class="cmd-preview" hidden></div>
+          </div>
+          <div class="cmd-foot">
+            <div class="cmd-hint mono cap">
+              <kbd>⌘</kbd><kbd>↵</kbd> save · <kbd>tab</kbd> cycle type · paste images
+            </div>
+            <div class="cmd-actions">
+              <button type="button" id="cmdAttach" class="pill ghost">＋ files</button>
+              <input type="file" id="cmdFiles" multiple hidden accept="image/*,video/*,application/pdf,text/*,.log,.csv,.json">
+              <button type="submit" class="pill">save →</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== STATS STRIP ============== -->
+<section class="stats">
+  <div class="wrap">
+    <div class="stats-grid" id="statsGrid">
+      <!-- populated by JS -->
+    </div>
+  </div>
+</section>
+
+<!-- ============== FILTERS + TIMELINE ============== -->
+<section class="feed">
+  <div class="wrap feed-grid">
+    <aside class="feed-side">
+      <div class="side-block">
+        <div class="cap">Filter</div>
+        <div class="filters" id="typeFilters"></div>
+      </div>
+      <div class="side-block">
+        <div class="cap">Search</div>
+        <input id="searchInput" class="search" placeholder="text or #tag" />
+      </div>
+      <div class="side-block">
+        <div class="cap">Tags</div>
+        <div class="tags" id="tagCloud"></div>
+      </div>
+      <div class="side-block">
+        <div class="cap">Team</div>
+        <div class="members" id="membersList"></div>
+      </div>
+    </aside>
+
+    <div class="feed-main">
+      <div class="feed-head">
+        <div class="cap" id="feedCount">0 entries</div>
+        <div class="feed-active" id="feedActive"></div>
+      </div>
+      <div id="timeline"></div>
+      <div id="timelineEmpty" class="empty" hidden>
+        <div class="cap dim">Nothing yet</div>
+        <p class="tight">Log your first moment. A picture. A line of thought.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== FOOTER ============== -->
+<footer class="foot">
+  <div class="wrap foot-grid">
+    <div class="foot-l">
+      <div class="cap">Built on</div>
+      <div class="tight" style="font-size:1.1rem; margin-top:.3rem">
+        Markdown · SQLite · localhost
+      </div>
+    </div>
+    <div class="foot-mid wordmark">
+      <span class="w">THYMELINE</span>
+    </div>
+    <div class="foot-r">
+      <div class="cap">Vault</div>
+      <div class="mono dim" id="footVault" style="font-size:.75rem; margin-top:.3rem"></div>
+    </div>
+  </div>
+</footer>
+
+<!-- ============== INVITE MODAL ============== -->
+<div class="dialog" id="inviteDialog" hidden>
+  <div class="dialog-card">
+    <div class="cap">Invite teammate</div>
+    <h3 class="tight">Send this link.</h3>
+    <p class="dim">Opens once on their machine. They pick a name, and they're in.</p>
+    <div class="invite-row">
+      <input id="inviteUrl" readonly class="mono" />
+      <button class="pill" id="inviteCopy">copy</button>
+    </div>
+    <div class="dialog-actions">
+      <button class="link" id="inviteClose">close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============== BOOTSTRAP MODAL ============== -->
+<div class="dialog" id="bootstrapDialog" hidden>
+  <div class="dialog-card">
+    <div class="cap">First run</div>
+    <h3 class="tight">Name your project. Name yourself.</h3>
+    <p class="dim">You become the owner. Invite teammates anytime.</p>
+    <form id="bootstrapForm">
+      <label class="field">
+        <span class="cap">Project name</span>
+        <input name="project" required placeholder="Quadruped V2" />
+      </label>
+      <label class="field">
+        <span class="cap">Your name</span>
+        <input name="name" required placeholder="Barq" />
+      </label>
+      <div class="dialog-actions">
+        <button class="pill" type="submit">start →</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ============== TOAST ============== -->
+<div id="toast" class="toast"></div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
