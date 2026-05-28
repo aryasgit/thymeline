@@ -513,6 +513,8 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
   padding: 2rem;
   animation: fadeIn .2s ease;
 }
+/* Attribute-selector specificity beats .dialog so `hidden` actually hides */
+.dialog[hidden] { display: none; }
 @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
 .dialog-card {
   background: var(--bg); border: 1px solid var(--line-2);
